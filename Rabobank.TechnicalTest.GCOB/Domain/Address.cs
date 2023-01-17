@@ -1,9 +1,8 @@
-namespace Rabobank.TechnicalTest.GCOB
+﻿namespace Rabobank.TechnicalTest.GCOB.Domain
 {
-    public class Customer
-    {
+    public class Address
+    { 
         public int Id { get; set; }
-        public string FullNamne { get; set; }
         public string Street { get; set; }
         public string City { get; set; }
         public string Postcode { get; set; }

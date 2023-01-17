@@ -4,15 +4,16 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
+using Rabobank.TechnicalTest.GCOB.Exceptions;
 
 namespace Rabobank.TechnicalTest.GCOB.Repositories
 {
     public class InMemoryCustomerRepository : ICustomerRepository
     {
         private ConcurrentDictionary<int, CustomerDto> Customers { get; } = new ConcurrentDictionary<int, CustomerDto>();
-        private ILogger _logger;
+        private readonly ILogger _logger;
 
-        public InMemoryCustomerRespository(ILogger logger)
+        public InMemoryCustomerRepository(ILogger logger)
         {
             _logger = logger;
         }
@@ -48,7 +49,7 @@ namespace Rabobank.TechnicalTest.GCOB.Repositories
         {
             _logger.LogDebug($"FindMany Customers with identity {identity}");
 
-            if (!Customers.ContainsKey(identity)) throw new Exception(identity.ToString());
+            if (!Customers.ContainsKey(identity)) throw new NotFoundException(identity.ToString());
             _logger.LogDebug($"Found Customer with identity {identity}");
             return Task.FromResult(Customers[identity]);
         }

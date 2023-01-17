@@ -7,7 +7,7 @@ namespace Rabobank.TechnicalTest.GCOB.Repositories
     {
         Task<int> GenerateIdentityAsync();
         Task InsertAsync(AddressDto address);
-        Task<CustomerDto> GetAsync(int identity);
         Task UpdateAsync(AddressDto address);
+        Task<AddressDto> GetAsync(int addressId);
     }
 }
