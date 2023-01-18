@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using Rabobank.TechnicalTest.GCOB.Repositories;
 using Rabobank.TechnicalTest.GCOB.Services;
+using Rabobank.TechnicalTest.GCOB.Validators;
 
 namespace Rabobank.TechnicalTest.GCOB
 {
@@ -46,6 +48,9 @@ namespace Rabobank.TechnicalTest.GCOB
             services.AddScoped<ICustomerService, CustomerService>();
             services.AddScoped<IAddressService, AddressService>();
             services.AddScoped<ICountryService, CountryService>();
+
+            // validation
+            services.AddValidatorsFromAssemblyContaining<CustomerValidator>();
 
             // infrastructure
             services.AddControllers()

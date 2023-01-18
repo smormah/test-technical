@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using Rabobank.TechnicalTest.GCOB.Controllers;
 using Rabobank.TechnicalTest.GCOB.Domain;
 using Rabobank.TechnicalTest.GCOB.Exceptions;
@@ -20,6 +23,7 @@ namespace Rabobank.TechnicalTest.GCOB.Tests.Services
 
         private Mock<ICustomerService> _customersServiceMock;
         private Mock<ILogger<CustomerController>> _loggerMock;
+        private Mock<IValidator<Customer>> _customerValidationMock;
         private readonly Random _rnd = new Random();
 
 
@@ -27,6 +31,7 @@ namespace Rabobank.TechnicalTest.GCOB.Tests.Services
         public void Initialize()
         {
             _customersServiceMock = new Mock<ICustomerService>(MockBehavior.Strict);
+            _customerValidationMock = new Mock<IValidator<Customer>>(MockBehavior.Strict);
             _loggerMock = new Mock<ILogger<CustomerController>>(MockBehavior.Strict);
         }
 
@@ -101,11 +106,11 @@ namespace Rabobank.TechnicalTest.GCOB.Tests.Services
             var customer = new Customer
             {
                 FullName = "John Doe",
-                Postcode = "XXX A1B",
-                City = "London",
-                Street = "123 Fake Street",
                 Country = "UK"
             };
+
+            var validationResult = new ValidationResult();
+            _customerValidationMock.Setup(x => x.ValidateAsync(customer, CancellationToken.None)).ReturnsAsync(validationResult);
 
             _customersServiceMock.Setup(x => x.AddNewCustomer(customer)).ReturnsAsync(identity);
 
@@ -122,6 +127,36 @@ namespace Rabobank.TechnicalTest.GCOB.Tests.Services
             _customersServiceMock.Verify();
         }
 
+
+        [TestMethod]
+        public async Task GivenHaveAnInvalidCustomerRost_WhenIPostToTheController_ThenResponseIsBadRequest()
+        {
+            // Arrange
+            var customer = new Customer
+            {
+                FullName = "John Doe",
+                Country = "UK"
+            };
+
+            var validationResult = new ValidationResult(new List<ValidationFailure>
+            {
+                new ValidationFailure("SomeField", "Test error message")
+            });
+
+            _customerValidationMock.Setup(x => x.ValidateAsync(customer, CancellationToken.None)).ReturnsAsync(validationResult);
+
+            _loggerMock.Setup(logger => logger.Log<It.IsAnyType>(LogLevel.Error, 0, It.Is<It.IsAnyType>((@object, type) => type.Name == "FormattedLogValues"), It.IsAny<Exception>(), It.IsAny<Func<It.IsAnyType, Exception, string>>()));
+            _customersServiceMock.Setup(x => x.AddNewCustomer(customer)).Throws<NotFoundException>();
+
+            // Act
+            var response = await CreateController().Post(customer);
+
+            // Assert
+            Assert.IsTrue(response is BadRequestObjectResult);
+            _customersServiceMock.Verify();
+            _loggerMock.Verify();
+        }
+
         [TestMethod]
         public async Task GivenHaveAnInvalidCustomerWithUnKnownCountry_AndIPostTheController_ThenResponseIsBadRequest()
         {
@@ -129,11 +164,11 @@ namespace Rabobank.TechnicalTest.GCOB.Tests.Services
             var customer = new Customer
             {
                 FullName = "John Doe",
-                Postcode = "XXX A1B",
-                City = "London",
-                Street = "123 Fake Street",
                 Country = "UK"
             };
+
+            var validationResult = new ValidationResult();
+            _customerValidationMock.Setup(x => x.ValidateAsync(customer, CancellationToken.None)).ReturnsAsync(validationResult);
 
             _loggerMock.Setup(logger => logger.Log<It.IsAnyType>(LogLevel.Error, 0, It.Is<It.IsAnyType>((@object, type) => type.Name == "FormattedLogValues"), It.IsAny<Exception>(), It.IsAny<Func<It.IsAnyType, Exception, string>>()));
             _customersServiceMock.Setup(x => x.AddNewCustomer(customer)).Throws<NotFoundException>();
@@ -154,11 +189,11 @@ namespace Rabobank.TechnicalTest.GCOB.Tests.Services
             var customer = new Customer
             {
                 FullName = "John Doe",
-                Postcode = "XXX A1B",
-                City = "London",
-                Street = "123 Fake Street",
                 Country = "UK"
             };
+
+            var validationResult = new ValidationResult();
+            _customerValidationMock.Setup(x => x.ValidateAsync(customer, CancellationToken.None)).ReturnsAsync(validationResult);
 
             _loggerMock.Setup(logger => logger.Log<It.IsAnyType>(LogLevel.Error, 0, It.Is<It.IsAnyType>((@object, type) => type.Name == "FormattedLogValues"), It.IsAny<Exception>(), It.IsAny<Func<It.IsAnyType, Exception, string>>()));
             _customersServiceMock.Setup(x => x.AddNewCustomer(customer)).Throws<NullReferenceException>();
@@ -176,7 +211,7 @@ namespace Rabobank.TechnicalTest.GCOB.Tests.Services
 
         public CustomerController CreateController()
         {
-            return new CustomerController(_customersServiceMock.Object, _loggerMock.Object);
+            return new CustomerController(_customersServiceMock.Object, _customerValidationMock.Object, _loggerMock.Object);
         }
 
         private int CreateRandomNumber()

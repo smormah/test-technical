@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Net.Mime;
 using System.Threading.Tasks;
+using FluentValidation;
 using Microsoft.AspNetCore.Http;
 using Rabobank.TechnicalTest.GCOB.Domain;
 using Rabobank.TechnicalTest.GCOB.Exceptions;
@@ -15,11 +16,13 @@ namespace Rabobank.TechnicalTest.GCOB.Controllers
     public class CustomerController : ControllerBase
     {
         private readonly ICustomerService _customerService;
+        private readonly IValidator<Customer> _customerValidator;
         private readonly ILogger<CustomerController> _logger;
 
-        public CustomerController(ICustomerService customerService, ILogger<CustomerController> logger)
+        public CustomerController(ICustomerService customerService, IValidator<Customer> customerValidator, ILogger<CustomerController> logger)
         {
             _customerService = customerService;
+            _customerValidator = customerValidator;
             _logger = logger;
         }
 
@@ -32,7 +35,7 @@ namespace Rabobank.TechnicalTest.GCOB.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        [Produces(MediaTypeNames.Application.Json)]
+        [Produces( MediaTypeNames.Application.Json)]
         public async Task<ActionResult> Get([FromRoute]int id)
         {
             try
@@ -68,13 +71,19 @@ namespace Rabobank.TechnicalTest.GCOB.Controllers
         {
             try
             {
+                var validationResult = await _customerValidator.ValidateAsync(customer);
+                if (!validationResult.IsValid)
+                {
+                    return BadRequest(new { status = StatusCodes.Status400BadRequest, message = "Invalid data supplied" });
+                }
+
                 var customerId = await _customerService.AddNewCustomer(customer);
                 return new CreatedResult($"/customer/{customerId}", new { id = customerId });
             }
             catch (NotFoundException exception)
             {
                 _logger.LogError(exception.Message);
-                return BadRequest(new { status = StatusCodes.Status404NotFound, message = "Invalid data supplied" });
+                return BadRequest(new { status = StatusCodes.Status400BadRequest, message = "Invalid data supplied" });
             }
             catch (Exception exception)
             {
